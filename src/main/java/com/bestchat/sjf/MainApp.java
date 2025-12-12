@@ -12,6 +12,7 @@ import com.bestchat.sjf.ui.GanttChart;
 import com.bestchat.sjf.ui.ProcessFormDialog;
 import com.bestchat.sjf.ui.ProcessViewModel;
 import javafx.application.Application;
+import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -36,7 +37,7 @@ public class MainApp extends Application implements SimulationListener {
     private final Map<String, ProcessViewModel> viewModelIndex = new HashMap<>();
     private final ListView<String> eventLog = new ListView<>();
     private final ListView<String> readyQueueView = new ListView<>();
-    private final Label timeLabel = new Label("t=0");
+    private final Label timeLabel = new Label("время=0");
     private final GanttChart ganttChart = new GanttChart();
 
     private final CsvIoService csvIoService = new CsvIoService();
@@ -75,7 +76,7 @@ public class MainApp extends Application implements SimulationListener {
         root.setRight(buildSidePanel());
         root.setBottom(buildBottomControls());
 
-        stage.setTitle("SJF Priority Simulator");
+        stage.setTitle("Симулятор планировщика SJF");
         stage.setScene(new Scene(root, 1200, 800));
         stage.show();
     }
@@ -95,18 +96,30 @@ public class MainApp extends Application implements SimulationListener {
 
     private Pane buildTopControls() {
         Button addButton = new Button("Добавить процесс");
+        addButton.setTooltip(new Tooltip("Открывает окно для ручного добавления нового процесса"));
         addButton.setOnAction(e -> openProcessDialog());
 
         Button importButton = new Button("Загрузить из CSV");
+        importButton.setTooltip(new Tooltip("Импортирует список процессов из CSV файла (id, arrival, burst, priority)"));
         importButton.setOnAction(e -> importFromCsv());
 
         Button exportButton = new Button("Сохранить результаты");
+        exportButton.setTooltip(new Tooltip("Экспортирует текущие результаты симуляции в CSV"));
         exportButton.setOnAction(e -> exportResults());
 
+        Label modeLabel = new Label("Режим:");
+        modeLabel.setTooltip(new Tooltip("Выберите вытесняющий или невытесняющий режим планировщика"));
+
+        agingCheckBox.setTooltip(new Tooltip("При включении приоритет процесса повышается при длительном ожидании"));
+
+        Label speedLabel = new Label("Скорость:");
+        speedSlider.setTooltip(new Tooltip());
+        speedSlider.getTooltip().textProperty().bind(Bindings.format("Ускорение симуляции: %.2fx", speedSlider.valueProperty()));
+
         HBox box = new HBox(10, addButton, importButton, exportButton,
-                new Label("Режим:"), modeCombo,
+                modeLabel, modeCombo,
                 agingCheckBox,
-                new Label("Скорость"), speedSlider);
+                speedLabel, speedSlider);
         box.setPadding(new Insets(10));
 
         modeCombo.setOnAction(e -> reconfigureScheduler());
@@ -128,7 +141,9 @@ public class MainApp extends Application implements SimulationListener {
         tabs.getTabs().add(new Tab("Диаграмма Ганта", ganttPane));
 
         TableView<ProcessViewModel> tableView = buildProcessTable();
-        tabs.getTabs().add(new Tab("Процессы", tableView));
+        tabs.getTabs().add(new Tab("Процессы", new BorderPane(tableView)));
+
+        tabs.getTabs().add(buildLoadTestTab());
 
         tabs.getTabs().forEach(tab -> tab.setClosable(false));
         return tabs;
@@ -138,15 +153,15 @@ public class MainApp extends Application implements SimulationListener {
         TableView<ProcessViewModel> tableView = new TableView<>(tableData);
         tableView.getColumns().addAll(
                 column("ID", ProcessViewModel::idProperty),
-                column("Arrival", ProcessViewModel::arrivalProperty),
-                column("Burst", ProcessViewModel::burstProperty),
-                column("Priority", ProcessViewModel::priorityProperty),
-                column("State", ProcessViewModel::stateProperty),
-                column("Remaining", ProcessViewModel::remainingProperty),
-                column("Start", ProcessViewModel::startProperty),
-                column("Finish", ProcessViewModel::finishProperty),
-                column("Waiting", ProcessViewModel::waitingProperty),
-                column("Turnaround", ProcessViewModel::turnaroundProperty)
+                column("Появление", ProcessViewModel::arrivalProperty),
+                column("Длительность", ProcessViewModel::burstProperty),
+                column("Приоритет", ProcessViewModel::priorityProperty),
+                column("Состояние", ProcessViewModel::stateProperty),
+                column("Осталось", ProcessViewModel::remainingProperty),
+                column("Старт", ProcessViewModel::startProperty),
+                column("Финиш", ProcessViewModel::finishProperty),
+                column("Ожидание", ProcessViewModel::waitingProperty),
+                column("Цикл", ProcessViewModel::turnaroundProperty)
         );
         return tableView;
     }
@@ -161,19 +176,27 @@ public class MainApp extends Application implements SimulationListener {
     private Pane buildSidePanel() {
         VBox right = new VBox(10);
         right.setPadding(new Insets(10));
-        Label readyLabel = new Label("READY очередь");
+        Label readyLabel = new Label("Очередь готовности");
+        readyLabel.setTooltip(new Tooltip("Процессы, ожидающие выделения CPU"));
         readyQueueView.setPrefHeight(200);
+        readyQueueView.setTooltip(new Tooltip("Очередь сортируется по приоритету и оставшемуся времени"));
         Label logLabel = new Label("Журнал событий");
+        logLabel.setTooltip(new Tooltip("Ключевые события планировщика"));
         eventLog.setPrefHeight(400);
+        eventLog.setTooltip(new Tooltip("Запуск, вытеснения и завершения процессов"));
         right.getChildren().addAll(readyLabel, readyQueueView, logLabel, eventLog);
         return right;
     }
 
     private Pane buildBottomControls() {
-        Button startButton = new Button("Run");
-        Button pauseButton = new Button("Pause");
-        Button stepButton = new Button("Step");
-        Button resetButton = new Button("Reset");
+        Button startButton = new Button("Старт");
+        startButton.setTooltip(new Tooltip("Запускает непрерывную симуляцию"));
+        Button pauseButton = new Button("Пауза");
+        pauseButton.setTooltip(new Tooltip("Приостанавливает симуляцию"));
+        Button stepButton = new Button("Шаг");
+        stepButton.setTooltip(new Tooltip("Выполняет один тик симуляции"));
+        Button resetButton = new Button("Сброс");
+        resetButton.setTooltip(new Tooltip("Очищает прогресс и возвращает процессы в исходное состояние"));
 
         startButton.setOnAction(e -> engine.startContinuous());
         pauseButton.setOnAction(e -> engine.pause());
@@ -186,9 +209,69 @@ public class MainApp extends Application implements SimulationListener {
             eventLog.getItems().clear();
         });
 
-        HBox controls = new HBox(10, startButton, pauseButton, stepButton, resetButton, new Label("Текущее время:"), timeLabel);
+        Label timeCaption = new Label("Текущее время:");
+        timeCaption.setTooltip(new Tooltip("Текущее виртуальное время симуляции"));
+        HBox controls = new HBox(10, startButton, pauseButton, stepButton, resetButton, timeCaption, timeLabel);
         controls.setPadding(new Insets(10));
         return controls;
+    }
+
+    private Tab buildLoadTestTab() {
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(15));
+
+        Label description = new Label("""
+                Нагрузочные сценарии помогают быстро проверить поведение планировщика.
+                Выберите один из пресетов ниже: процессы будут загружены автоматически, и вы сможете сразу запустить симуляцию.
+                """);
+        description.setWrapText(true);
+
+        Button burstyPreset = new Button("Имитация всплеска задач");
+        burstyPreset.setTooltip(new Tooltip("Несколько коротких задач с разными приоритетами появляются одновременно"));
+        burstyPreset.setOnAction(e -> loadPreset("Всплеск задач", List.of(
+                new Process("A1", 0, 2, 2),
+                new Process("A2", 0, 7, 3),
+                new Process("A3", 0, 4, 1),
+                new Process("A4", 1, 3, 2)
+        )));
+
+        Button staggeredPreset = new Button("Поток запросов со временем ожидания");
+        staggeredPreset.setTooltip(new Tooltip("Задачи постепенно приходят и конкурируют за CPU"));
+        staggeredPreset.setOnAction(e -> loadPreset("Поток запросов", List.of(
+                new Process("B1", 0, 6, 3),
+                new Process("B2", 2, 5, 2),
+                new Process("B3", 4, 2, 4),
+                new Process("B4", 6, 1, 1),
+                new Process("B5", 7, 3, 3)
+        )));
+
+        Button agingPreset = new Button("Демонстрация старения");
+        agingPreset.setTooltip(new Tooltip("Показывает, как включенное старение вытягивает низкоприоритетные процессы"));
+        agingPreset.setOnAction(e -> loadPreset("Демонстрация старения", List.of(
+                new Process("C1", 0, 8, 4),
+                new Process("C2", 1, 5, 4),
+                new Process("C3", 2, 2, 1)
+        )));
+
+        VBox presets = new VBox(8, burstyPreset, staggeredPreset, agingPreset);
+
+        Label hint = new Label("Подсказка: после загрузки пресета можно менять режим и скорость, затем нажать \"Старт\" или \"Шаг\".");
+        hint.setWrapText(true);
+
+        content.getChildren().addAll(description, presets, hint);
+        ScrollPane scrollPane = new ScrollPane(content);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefViewportHeight(400);
+        scrollPane.setStyle("-fx-background-color: transparent;");
+        return new Tab("Нагрузочный тест", scrollPane);
+    }
+
+    private void loadPreset(String name, List<Process> preset) {
+        processDefinitions.clear();
+        processDefinitions.addAll(preset);
+        processDefinitions.sort(Comparator.comparingInt(Process::getArrivalTime));
+        refreshEngineData();
+        alert("Пресет загружен", name + ": " + preset.size() + " процессов");
     }
 
     private void openProcessDialog() {
@@ -263,7 +346,9 @@ public class MainApp extends Application implements SimulationListener {
     }
 
     private void alert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);
+        ButtonType ok = new ButtonType("Понятно", ButtonBar.ButtonData.OK_DONE);
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, message, ok);
+        alert.getButtonTypes().setAll(ok);
         alert.setHeaderText(title);
         alert.showAndWait();
     }
@@ -274,7 +359,7 @@ public class MainApp extends Application implements SimulationListener {
             ganttChart.addSlice(activeProcessId, lastTimeMark, time, colorForProcess(activeProcessId));
         }
         lastTimeMark = time;
-        timeLabel.setText("t=" + time);
+        timeLabel.setText("время=" + time);
     }
 
     @Override
@@ -301,7 +386,7 @@ public class MainApp extends Application implements SimulationListener {
     @Override
     public void onReadyQueueUpdated(List<Process> ready) {
         readyQueueView.getItems().setAll(ready.stream()
-                .map(p -> p.getId() + " (pr=" + p.getPriority() + ", remain=" + p.getRemainingTime() + ")")
+                .map(p -> p.getId() + " (приоритет=" + p.getPriority() + ", осталось=" + p.getRemainingTime() + ")")
                 .toList());
     }
 

@@ -83,7 +83,7 @@ public class SJFWithPriorityScheduler implements Scheduler {
         if (current.getRemainingTime() == 0) {
             current.setFinishTime(time);
             current.setState(ProcessState.FINISHED);
-            events.add("t=" + time + ": Процесс " + current.getId() + " завершен");
+            events.add("t=" + time + ": Процесс " + current.getId() + " завершён");
             completed++;
             current = null;
         }
@@ -94,8 +94,8 @@ public class SJFWithPriorityScheduler implements Scheduler {
     private void runCurrent() {
         if (current.getStartTime() == null) {
             current.setStartTime(time);
-            events.add("t=" + time + ": Процесс " + current.getId() + " запущен (arrival=" + current.getArrivalTime()
-                    + ", burst=" + current.getBurstTime() + ", priority=" + current.getPriority() + ")");
+            events.add("t=" + time + ": Процесс " + current.getId() + " запущен (появление=" + current.getArrivalTime()
+                    + ", длительность=" + current.getBurstTime() + ", приоритет=" + current.getPriority() + ")");
         }
         current.setState(ProcessState.RUNNING);
         current.setRemainingTime(current.getRemainingTime() - 1);
@@ -153,7 +153,7 @@ public class SJFWithPriorityScheduler implements Scheduler {
             Process process = processes.get(arrivalIndex);
             process.setState(ProcessState.READY);
             readyQueue.add(process);
-            events.add("t=" + time + ": Процесс " + process.getId() + " прибыл");
+            events.add("t=" + time + ": Процесс " + process.getId() + " поступил в систему");
             arrivalIndex++;
         }
     }
