@@ -36,7 +36,7 @@ public class ProcessViewModel {
         finish.set(process.getFinishTime() == null ? -1 : process.getFinishTime());
         waiting.set(process.getWaitingTime());
         turnaround.set(process.getTurnaroundTime());
-        state.set(process.getState().name());
+        state.set(translateState(process.getState()));
     }
 
     public StringProperty idProperty() {
@@ -77,5 +77,14 @@ public class ProcessViewModel {
 
     public StringProperty stateProperty() {
         return state;
+    }
+
+    private String translateState(ProcessState processState) {
+        return switch (processState) {
+            case NEW -> "Новый";
+            case READY -> "Готов";
+            case RUNNING -> "Выполняется";
+            case FINISHED -> "Завершён";
+        };
     }
 }
